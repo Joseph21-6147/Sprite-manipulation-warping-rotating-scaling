@@ -1,5 +1,5 @@
-# Sprite-warping-and-rotating
-A module to add functions for sprite rotating and warping to the olcPixelGameEngine
+# Sprite-manipulation-warping-rotating-scaling
+A module to add functions for sprite rotating, warping and scaling when using the olcPixelGameEngine
 
 The implementation of the sprite warping function is heavily inspired by Nathan Reed (see: https://www.reedbeta.com/blog/quadrilateral-interpolation-part-2/).
 
