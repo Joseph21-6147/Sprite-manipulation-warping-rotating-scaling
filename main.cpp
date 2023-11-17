@@ -5,18 +5,11 @@
 
 // Test program to test the functionality of ManiplatedSprite module.
 
-//#include <climits>       // needed for MIN_ and MAX_INT constants - thanks @Moros1138!
-
 #define OLC_PGE_APPLICATION
 #include "olcPixelGameEngine.h"
 
 #include "ManipulatedSprite.h"
 
-
-// returns true if chance of amount out of out_of occurs
-bool Chance( int amount, int out_of ) {
-    return (rand() % out_of) < amount;
-}
 
 class WarpedRotatedSprite : public olc::PixelGameEngine {
 public:
@@ -36,10 +29,26 @@ public:
     int nScaleSprite = 2;              // scale factor for the sprite to be sampled
     float fDispPercentage = 0.5f;      // scale factor for the display area on screen
     olc::vf2d scaleFactor = { 1.0f, 1.0f };   // scale factor for rendering the rotated sprite
+    olc::vf2d partSource  = { 0.0f, 0.0f };
+    olc::vf2d partSize    = { 1.0f, 1.0f };
 
-    bool bRotateOnlyMode = true;
+    enum SpriteRenderMode {
+        RotateOnly = 0,
+        Warped,
+        Partial
+    } enRenderMode;
+
 
 public:
+
+    std::string RenderMode2String( SpriteRenderMode mode ) {
+        switch (mode) {
+            case RotateOnly: return "ROTATE_ONLY";
+            case Warped    : return "WARPED"     ;
+            case Partial   : return "PARTIAL"    ;
+        }
+        return "_INVALID_";
+    }
 
     // creates a copy of orgSprite by scaling it with factor nScale
     // the copy is passed as ppSprite
@@ -97,10 +106,16 @@ public:
             float( points[1].y - points[0].y ) / sprDemo->height,
         };
 
+        partSource = { 0.0f, 0.0f };
+        partSize = { float( sprDemo->width ), float( sprDemo->height ) };
+
         return true;
     }
 
     bool OnUserUpdate( float fElapsedTime ) override {
+
+        // User input part
+        // ===============
 
         olc::vd2d mouse = { double(GetMouseX()), double(GetMouseY()) };  // grab mouse position
 
@@ -151,20 +166,35 @@ public:
         if (GetKey( olc::Key::END  ).bHeld) { scaleFactor.x += 1.0f * fElapsedTime; }
         if (GetKey( olc::Key::INS  ).bHeld) { scaleFactor.y -= 1.0f * fElapsedTime; }
         if (GetKey( olc::Key::DEL  ).bHeld) { scaleFactor.y += 1.0f * fElapsedTime; }
-        // toggle rotate-only to warped and vv
-        if (GetKey( olc::Key::M ).bPressed) { bRotateOnlyMode = !bRotateOnlyMode; }
+        // cycle rendermode
+        if (GetKey( olc::Key::M ).bPressed) {
+            switch (enRenderMode) {
+                case RotateOnly: enRenderMode = Warped    ; break;
+                case Warped    : enRenderMode = Partial   ; break;
+                case Partial   : enRenderMode = RotateOnly; break;
+            }
+        }
+        // change partial sprite parameters
+        if (GetKey( olc::Key::NP1 ).bHeld) { partSource -= olc::vf2d( 10.0f * fElapsedTime, 10.0f * fElapsedTime ); }
+        if (GetKey( olc::Key::NP7 ).bHeld) { partSource += olc::vf2d( 10.0f * fElapsedTime, 10.0f * fElapsedTime ); }
+        if (GetKey( olc::Key::NP3 ).bHeld) { partSize   -= olc::vf2d( 10.0f * fElapsedTime, 10.0f * fElapsedTime ); }
+        if (GetKey( olc::Key::NP9 ).bHeld) { partSize   += olc::vf2d( 10.0f * fElapsedTime, 10.0f * fElapsedTime ); }
+
+        // Rendering part
+        // ==============
 
         Clear( olc::VERY_DARK_BLUE );
 
         // here's the actual test code
-        // ===========================
+        // ---------------------------
         SetPixelMode( olc::Pixel::MASK );
 
         olc::vf2d originPoint = olc::vf2d( points[0].x, points[0].y );
-        if (bRotateOnlyMode) {
-            DrawRotatedSprite( this, originPoint, sprDemo, fTheta, centerPt, scaleFactor );
-        } else {
-            DrawWarpedRotatedSprite( this, sprDemo, points, fTheta, centerPt );
+
+        switch (enRenderMode) {
+            case RotateOnly: DrawRotatedSprite(        this, originPoint, sprDemo, fTheta, centerPt,                       scaleFactor ); break;
+            case Warped    : DrawWarpedRotatedSprite(  this, sprDemo, points     , fTheta, centerPt                                    ); break;
+            case Partial   : DrawPartialRotatedSprite( this, originPoint, sprDemo, fTheta, centerPt, partSource, partSize, scaleFactor ); break;
         }
 
         SetPixelMode( olc::Pixel::NORMAL );
@@ -178,14 +208,18 @@ public:
             FillCircle( points[i], 4, olc::YELLOW );
         }
 
-
-        DrawString( 10, 10, "[NP_SUB/NP_ADD] Sprite scale      : " + std::to_string( nScaleSprite    )                                            , olc::YELLOW );
-        DrawString( 10, 20, "                Sprite size       : " + std::to_string( sprDemo->width  ) + " x " + std::to_string( sprDemo->height ), olc::YELLOW );
-        DrawString( 10, 30, "[  PGDN/PGUP  ] Display scale     : " + std::to_string( fDispPercentage ) + " = "
+        // output the test parameters on screen
+        DrawString(  10, 10, "[NP_SUB/NP_ADD] Sprite scale      : " + std::to_string( nScaleSprite    )                                            , olc::YELLOW );
+        DrawString(  10, 20, "                Sprite size       : " + std::to_string( sprDemo->width  ) + " x " + std::to_string( sprDemo->height ), olc::YELLOW );
+        DrawString(  10, 30, "[  PGDN/PGUP  ] Display scale     : " + std::to_string( fDispPercentage ) + " = "
                                                                    + std::to_string( fDispPercentage * ScreenHeight() ) + " pixels"               , olc::YELLOW );
-        DrawString( 10, 40, "[   <--/-->   ] Rot. angle        : " + std::to_string( fTheta          )                                            , olc::YELLOW );
-        DrawString( 10, 50, "[  HOME/END   ]"                                                                                                     , olc::YELLOW );
-        DrawString( 10, 60, "[    INS/DEL  ] Sprite renderscale: " + std::to_string( scaleFactor.x   ) + " x " + std::to_string( scaleFactor.y   ), olc::YELLOW );
+        DrawString(  10, 40, "[   <--/-->   ] Rot. angle        : " + std::to_string( fTheta          )                                            , olc::YELLOW );
+        DrawString(  10, 50, "[  HOME/END   ]"                                                                                                     , olc::YELLOW );
+        DrawString(  10, 60, "[    INS/DEL  ] Sprite renderscale: " + std::to_string( scaleFactor.x   ) + " x " + std::to_string( scaleFactor.y   ), olc::YELLOW );
+
+        DrawString( 610, 10, "Mode                       : " + RenderMode2String( enRenderMode )                                                   , olc::YELLOW );
+        DrawString( 610, 20, "[  NP_1/NP_7  ] Part origin: (" + std::to_string( partSource.x ) + ", " + std::to_string( partSource.y ) + ")"       , olc::YELLOW );
+        DrawString( 610, 30, "[  NP_3/NP_9  ] Part size  : (" + std::to_string( partSize.x )   + ", " + std::to_string( partSize.y )   + ")"       , olc::YELLOW );
 
         return !GetKey( olc::Key::ESCAPE ).bPressed;
     }

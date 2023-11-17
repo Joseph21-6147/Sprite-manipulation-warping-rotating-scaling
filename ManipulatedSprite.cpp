@@ -151,8 +151,6 @@ void olc::DrawWarpedSprite( PixelGameEngine *gfx, olc::Sprite *pSprite, const st
     }
 }
 
-// These variants are there for compliance with the PGE interface - the implementation on decals
-
 // Draws a sprite with 4 arbitrary points, warping the texture to look "correct"
 void olc::DrawWarpedSprite( PixelGameEngine *gfx, olc::Sprite *pSprite, const olc::vf2d(&pos)[4] ) {
     std::array<olc::vf2d, 4> localPoints;
@@ -232,3 +230,40 @@ void olc::DrawWarpedRotatedSprite( PixelGameEngine *gfx, olc::Sprite *pSprite, c
     // draw sprite using rotated cornerpoints
     DrawWarpedSprite( gfx, pSprite, localPoints );
 }
+
+// Pretty much the same as DrawRotatedSprite(), but only a part of the sprite is rendered
+void olc::DrawPartialRotatedSprite(
+    PixelGameEngine *gfx,
+    const olc::vf2d& pos,           // location on screen for the (unrotated) sprite origin
+    olc::Sprite *pSprite,           // pointer to the sprite to draw
+    const float fAngle,             // angle and centerpoint to rotate around
+    const olc::vf2d& center,
+    const olc::vf2d& source_pos,    // origin and size of the part of the sprite to render
+    const olc::vf2d& source_size,
+    const olc::vf2d& scale          // scaling factors in two directions
+) {
+
+    // prepare call to RotateQuadPoints()
+    std::array<olc::vd2d, 4> localPoints;
+    olc::vd2d ul = pos;
+    olc::vd2d lr = pos + olc::vd2d( pSprite->width * scale.x, pSprite->height * scale.y );
+    localPoints[0] = olc::vd2d( ul.x, ul.y );
+    localPoints[1] = olc::vd2d( ul.x, lr.y );
+    localPoints[2] = olc::vd2d( lr.x, lr.y );
+    localPoints[3] = olc::vd2d( lr.x, ul.y );
+    olc::vd2d dCenterPoint = olc::vd2d( double( center.x ), double( center.y ));
+    // rotate the points
+    RotateQuadPoints( localPoints, double( fAngle ), dCenterPoint );
+    // convert back to float type
+    std::array<olc::vf2d, 4> renderPoints;
+    for (int i = 0; i < 4; i++) {
+        renderPoints[i] = localPoints[i];
+    }
+    // create duplicate from sprite part parameters
+    olc::Sprite *pPartialSprite = pSprite->Duplicate( source_pos, source_size );
+    // render the partial sprite using the rotated cornerpoints
+    DrawWarpedSprite( gfx, pPartialSprite, renderPoints );
+    // clean up duplicate to prevent memory leak
+    delete pPartialSprite;
+}
+
