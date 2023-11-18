@@ -45,6 +45,9 @@ namespace olc {
     void DrawWarpedSprite( PixelGameEngine *gfx, olc::Sprite *pSprite, const olc::vf2d(&pos)[4] );
     void DrawWarpedSprite( PixelGameEngine *gfx, olc::Sprite *pSprite, const olc::vf2d *pos );
 
+    // I created a variant that allows for clipping left and right of the warped sprite, and takes a shading factor in [0.0f, 1.0f] for pixel rendering
+    void DrawWarpedSpriteClipped( PixelGameEngine *gfx, olc::Sprite *pSprite, const std::array<olc::vf2d, 4> &cornerPoints, int nClipLeft, int nClipRight, float fShadeFactor = 1.0f );
+
     // Draws a sprite at screen location pos, rotated to specified fAngle (radians), with point of rotation offset. You can scale the rotated sprite as well.
     void DrawRotatedSprite( PixelGameEngine *gfx, const olc::vf2d& pos, olc::Sprite *pSprite, const float fAngle, const olc::vf2d& center = { 0.0f, 0.0f }, const olc::vf2d& scale = { 1.0f, 1.0f } );
 

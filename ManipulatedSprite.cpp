@@ -106,8 +106,8 @@ bool olc::WarpedSample( olc::vd2d q, olc::vd2d b1, olc::vd2d b2, olc::vd2d b3, o
     colour = pSprite->Sample( uv.x, 1.0 - uv.y );
 
     // return whether sampling produced a valid pixel
-    return (uv.x >= 0.0 && uv.x <  1.0 &&
-            uv.y >  0.0 && uv.y <= 1.0);
+    return (uv.x >= 0.0 && uv.x <= 1.0 &&
+            uv.y >= 0.0 && uv.y <= 1.0);
 }
 
 void olc::DrawWarpedSprite( PixelGameEngine *gfx, olc::Sprite *pSprite, const std::array<olc::vf2d, 4> &cornerPoints ) {
@@ -146,6 +146,51 @@ void olc::DrawWarpedSprite( PixelGameEngine *gfx, olc::Sprite *pSprite, const st
 
             if (WarpedSample( q, b1, b2, b3, pSprite, pix2render )) {
                 gfx->Draw( x, y, pix2render );
+            }
+        }
+    }
+}
+
+// I created a variant that allows for clipping left and right of the warped sprite, and takes a shading factor in [0.0f, 1.0f] for pixel rendering
+void olc::DrawWarpedSpriteClipped( PixelGameEngine *gfx, olc::Sprite *pSprite, const std::array<olc::vf2d, 4> &cornerPoints, int nClipLeft, int nClipRight, float fShadeFactor ) {
+
+    // These lambdas return respectively the values q, b1 - b3 from the bilinear interpolation analysis
+    // The b1 - b3 values can be determined once per quad. The q value is associated per pixel
+    auto Get_q  = [=] ( const std::array<olc::vd2d, 4> &cPts, const olc::vd2d &curVert ) -> olc::vd2d { return curVert - cPts[0];                     };
+    auto Get_b1 = [=] ( const std::array<olc::vd2d, 4> &cPts                           ) -> olc::vd2d { return cPts[1] - cPts[0];                     };
+    auto Get_b2 = [=] ( const std::array<olc::vd2d, 4> &cPts                           ) -> olc::vd2d { return cPts[2] - cPts[0];                     };
+    auto Get_b3 = [=] ( const std::array<olc::vd2d, 4> &cPts                           ) -> olc::vd2d { return cPts[0] - cPts[1] - cPts[2] + cPts[3]; };
+
+    // note that the corner points are passed in order: ul, ll, lr, ur, but the WarpedSample() algorithm
+    // assumes the order ll, lr, ul, ur. This rearrangement is done here
+    std::array<olc::vd2d, 4> localCornerPoints;
+    localCornerPoints[0] = cornerPoints[1];
+    localCornerPoints[1] = cornerPoints[2];
+    localCornerPoints[2] = cornerPoints[0];
+    localCornerPoints[3] = cornerPoints[3];
+
+    // get b1-b3 values from the quad corner points
+    // NOTE: the q value is associated per pixel and is obtained in the nested loop below
+    olc::vd2d b1 = Get_b1( localCornerPoints );
+    olc::vd2d b2 = Get_b2( localCornerPoints );
+    olc::vd2d b3 = Get_b3( localCornerPoints );
+
+    // determine the bounding box around the quad
+    olc::vi2d UpperLeft, LowerRight;
+    GetQuadBoundingBox( localCornerPoints, UpperLeft, LowerRight );
+
+    int x_strt = std::max( UpperLeft.x, nClipLeft );
+    int x_stop = std::min( LowerRight.x, nClipRight );
+
+    // iterate all pixels within the bounding box of the quad...
+    for (int x = x_strt; x <= x_stop; x++) {
+        for (int y = UpperLeft.y; y <= LowerRight.y; y++) {
+            // ... and render them if sampling produces valid pixel
+            olc::Pixel pix2render;
+            olc::vd2d q = Get_q( localCornerPoints, { (double)x, (double)y } );
+
+            if (WarpedSample( q, b1, b2, b3, pSprite, pix2render )) {
+                gfx->Draw( x, y, pix2render * fShadeFactor );
             }
         }
     }
