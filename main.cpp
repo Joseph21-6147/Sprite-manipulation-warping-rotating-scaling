@@ -5,6 +5,8 @@
 
 // Test program to test the functionality of ManiplatedSprite module.
 
+#define OLC_IMAGE_STB     // to enable sprite saving
+
 #define OLC_PGE_APPLICATION
 #include "olcPixelGameEngine.h"
 
@@ -88,12 +90,15 @@ public:
 
     bool OnUserCreate() override {
 
-        sprOrg = new olc::Sprite(     // pick one of the test sprite files
+        std::string sPath = "./_assets/";
+        sprOrg = new olc::Sprite( sPath +
+            // pick one of the test sprite files below
 //            "small_mario.png"         //   13 x   16 pixels
             "elfgirl05.png"           // 100 x 100 pixels
 //            "tree 150x150.png"        //  150 x  150 pixels
-//            "my_tree.png"             //  900 x  900 pixels
 //            "compass.png"             //  231 x  231 pixels
+//            "crate.png"               // 464 x 464 pixels
+//            "my_tree.png"             //  900 x  900 pixels
 //            "Risor_3008x1692.png"     // 3008 x 1692 pixels
         );
         nScaleSprite = 2;
@@ -180,6 +185,9 @@ public:
         if (GetKey( olc::Key::NP3 ).bHeld) { partSize   -= olc::vf2d( 10.0f * fElapsedTime, 10.0f * fElapsedTime ); }
         if (GetKey( olc::Key::NP9 ).bHeld) { partSize   += olc::vf2d( 10.0f * fElapsedTime, 10.0f * fElapsedTime ); }
 
+        bool bSaveMode = GetKey( olc::S ).bPressed;
+        olc::Sprite *pSaveSpr = nullptr;
+
         // Rendering part
         // ==============
 
@@ -191,10 +199,22 @@ public:
 
         olc::vf2d originPoint = olc::vf2d( points[0].x, points[0].y );
 
+        if (bSaveMode) {
+            // create a sprite the size of the screen and set it as draw target
+            pSaveSpr = new olc::Sprite( ScreenWidth(), ScreenHeight() );
+            SetDrawTarget( pSaveSpr );
+        }
+
         switch (enRenderMode) {
             case RotateOnly: DrawRotatedSprite(        this, originPoint, sprDemo, fTheta, centerPt,                       scaleFactor ); break;
             case Warped    : DrawWarpedRotatedSprite(  this, sprDemo, points     , fTheta, centerPt                                    ); break;
             case Partial   : DrawPartialRotatedSprite( this, originPoint, sprDemo, fTheta, centerPt, partSource, partSize, scaleFactor ); break;
+        }
+
+        if (bSaveMode) {
+            std::string sFileName = "snap" + std::to_string( time( 0 )) + ".png";
+            pSaveSpr->SaveToFile( sFileName );
+            SetDrawTarget( nullptr );
         }
 
         SetPixelMode( olc::Pixel::NORMAL );
